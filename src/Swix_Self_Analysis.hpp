@@ -22,6 +22,7 @@ private:
     int m_maxSearchError;
     int splitError;
     
+    // Type_Ts m_maxTs;
     Type_Key m_startKey;
     double m_slope;
 
@@ -142,6 +143,7 @@ SWmeta<Type_Key,Type_Ts>::SWmeta(const vector<pair<Type_Key, Type_Ts>> & stream)
     cout << endl;
     #endif
 
+    // m_maxTs = stream.back().second;
     bulk_load(stream);
     splitError = INITIAL_ERROR;
 }
@@ -538,6 +540,7 @@ void SWmeta<Type_Key,Type_Ts>::lookup(pair<Type_Key, Type_Ts> & arrivalTuple, Ty
     //Does not include deletion
     Type_Key newKey = arrivalTuple.first;
     Type_Ts newTimeStamp = arrivalTuple.second;
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
     
     int foundPos = 0;
@@ -619,6 +622,7 @@ void SWmeta<Type_Key,Type_Ts>::range_search(tuple<Type_Key, Type_Ts, Type_Key> &
     Type_Key newKey = get<0>(arrivalTuple);
     Type_Ts newTimeStamp = get<1>(arrivalTuple);
     Type_Key upperBound = get<2>(arrivalTuple);
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
 
     int foundPos = 0;
@@ -886,6 +890,8 @@ void SWmeta<Type_Key,Type_Ts>::insert(pair<Type_Key, Type_Ts> & arrivalTuple)
 
     Type_Key newKey = arrivalTuple.first;
     Type_Ts newTimeStamp = arrivalTuple.second;
+    // m_maxTs = (m_maxTs < newTimeStamp)? newTimeStamp: m_maxTs;
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
 
     int foundPos = 0;

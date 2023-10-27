@@ -12,6 +12,18 @@
 #include "../lib/multithread_queues/concurrent_queue.h"
 #include "../lib/multithread_queues/reader_writer_queue.h"
 
+/*
+Requires Intel MKL
+Using CMake:
+    include_directories("include")
+    include_directories("/opt/intel/oneapi/mkl/2023.1.0/include")
+Using command-line:
+    -I/opt/intel/oneapi/mkl/2023.1.0/include
+*/
+
+#ifndef LOAD_DATA_METHOD
+#define LOAD_DATA_METHOD 0         
+#endif
 
 /*Key and Timestamp Types*/
 class Key;
@@ -94,7 +106,15 @@ moodycamel::ReaderWriterQueue<task_type> task_queue_worker[NUM_THREADS];
 int main(int argc, char **argv) 
 {
     LOG_INFO("Start benchmarking...");
-    sosd_range_query<key_type,time_type>(DATA_DIR FILE_NAME);
+    switch (LOAD_DATA_METHOD)
+    {
+        case 1:
+            sosd_range_query_sequential<key_type,time_type>(DATA_DIR FILE_NAME);
+            break;
+        default:
+            sosd_range_query<key_type,time_type>(DATA_DIR FILE_NAME);
+            break;
+    }
     LOG_INFO("Data loaded.")
 
     LOG_INFO("SIZE of benchmark_data: %lu", benchmark_data.size());

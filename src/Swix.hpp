@@ -18,6 +18,7 @@ private:
     int m_maxSearchError;
     int splitError;
     
+    // Type_Ts m_maxTs;
     Type_Key m_startKey;
     double m_slope;
 
@@ -45,6 +46,7 @@ public:
     //Operations
     void lookup(pair<Type_Key, Type_Ts> & arrivalTuple, Type_Key & resultCount);
     void range_search(tuple<Type_Key, Type_Ts, Type_Key> & arrivalTuple, vector<pair<Type_Key, Type_Ts>> & rangeSearchResult);
+    void range_search_ordered_data(tuple<Type_Key, Type_Ts, Type_Key> & arrivalTuple, vector<pair<Type_Key, Type_Ts>> & rangeSearchResult);
     void insert(pair<Type_Key, Type_Ts> & arrivalTuple);
 
 private:
@@ -134,6 +136,7 @@ SWmeta<Type_Key,Type_Ts>::SWmeta(pair<Type_Key, Type_Ts> & arrivalTuple)
     m_keys.push_back(arrivalTuple.first);
     m_ptr.push_back(SWsegPtr);
     m_startKey =arrivalTuple.first;
+    // m_maxTs = arrivalTuple.second;
     m_numPairExist = 1;
     m_bitmap.push_back(0);
     m_retrainBitmap.push_back(0);
@@ -151,6 +154,7 @@ SWmeta<Type_Key,Type_Ts>::SWmeta(const vector<pair<Type_Key, Type_Ts>> & stream)
     cout << endl;
     #endif
 
+    // m_maxTs = arrivalTuple.second;
     bulk_load(stream);
 
     splitError = INITIAL_ERROR;
@@ -529,6 +533,7 @@ void SWmeta<Type_Key,Type_Ts>::lookup(pair<Type_Key, Type_Ts> & arrivalTuple, Ty
     //Does not include deletion
     Type_Key newKey = arrivalTuple.first;
     Type_Ts newTimeStamp = arrivalTuple.second;
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
 
     int foundPos = 0;
@@ -610,6 +615,7 @@ void SWmeta<Type_Key,Type_Ts>::range_search(tuple<Type_Key, Type_Ts, Type_Key> &
     Type_Key newKey = get<0>(arrivalTuple);
     Type_Ts newTimeStamp = get<1>(arrivalTuple);
     Type_Key upperBound = get<2>(arrivalTuple);
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
 
     int foundPos = 0;
@@ -847,6 +853,43 @@ void SWmeta<Type_Key,Type_Ts>::range_search(tuple<Type_Key, Type_Ts, Type_Key> &
     #endif
 }
 
+
+//For Append Workload, Remove dangling tuples at the start of the index.
+template<class Type_Key, class Type_Ts>
+void SWmeta<Type_Key,Type_Ts>::range_search_ordered_data(tuple<Type_Key, Type_Ts, Type_Key> & arrivalTuple,
+                                                vector<pair<Type_Key, Type_Ts>> & rangeSearchResult)
+{    
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
+    Type_Ts lowerLimit =  ((double)get<1>(arrivalTuple) - TIME_WINDOW < numeric_limits<Type_Ts>::min()) 
+                            ? numeric_limits<Type_Ts>::min(): get<1>(arrivalTuple) - TIME_WINDOW;
+
+    for (int i = 0; i < m_ptr.size(); ++i)
+    {
+        if (bitmap_exists(i))
+        {
+            if (m_ptr[i]->m_maxTimeStamp < lowerLimit)
+            {
+                if (m_ptr[i]->m_rightSibling != nullptr) 
+                {
+                    m_ptr[i]->m_rightSibling->m_leftSibling = nullptr;
+                }
+                
+                delete m_ptr[i];
+                m_ptr[i] = nullptr;
+                bitmap_erase_bit(i);
+                bitmap_erase_bit(m_retrainBitmap,i);
+                m_numPairExist--;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    return range_search(arrivalTuple, rangeSearchResult);
+}
+
 template<class Type_Key, class Type_Ts>
 void SWmeta<Type_Key,Type_Ts>::insert(pair<Type_Key, Type_Ts> & arrivalTuple)
 {
@@ -877,6 +920,8 @@ void SWmeta<Type_Key,Type_Ts>::insert(pair<Type_Key, Type_Ts> & arrivalTuple)
 
     Type_Key newKey = arrivalTuple.first;
     Type_Ts newTimeStamp = arrivalTuple.second;
+    // m_maxTs = (m_maxTs < newTimeStamp)? newTimeStamp: m_maxTs;
+    // Type_Ts lowerLimit =  ((double)m_maxTs - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): m_maxTs - TIME_WINDOW;
     Type_Ts lowerLimit =  ((double)newTimeStamp - TIME_WINDOW < numeric_limits<Type_Ts>::min()) ? numeric_limits<Type_Ts>::min(): newTimeStamp - TIME_WINDOW;
 
     int foundPos = 0;

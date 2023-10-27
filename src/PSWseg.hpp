@@ -120,7 +120,9 @@ SWseg<Type_Key,Type_Ts>::SWseg(int startIndex, int endIndex, double slope, const
     m_buffer.reserve(MAX_BUFFER_SIZE);
     local_train(startIndex, endIndex, slope, data);
 
+    #ifdef TUNE
     m_tuneStage = tuneStage;
+    #endif
 
     #ifdef DEBUG
     DEBUG_EXIT_FUNCTION("SWseg","Constructor(startIndex, endIndex, slope, data)");
@@ -144,7 +146,9 @@ SWseg<Type_Key,Type_Ts>::SWseg(const pair<Type_Key,Type_Ts> & singleData)
     m_currentNodeStartKey = m_startKey;
     m_maxTimeStamp = singleData.second;
 
+    #ifdef TUNE
     m_tuneStage = tuneStage;
+    #endif
 
     #ifdef DEBUG
     DEBUG_EXIT_FUNCTION("SWseg","Constructor(singleData)");
@@ -413,16 +417,15 @@ int SWseg<Type_Key,Type_Ts>::range_search( int threadLeftBoundary, int threadRig
     #if defined(DEBUG_KEY) || defined(DEBUG_TS) 
     if(DEBUG_KEY == lowerBound) 
     {
-        DEBUG_ENTER_FUNCTION("SWseg","range_search")
+        DEBUG_ENTER_FUNCTION("SWseg","range_search");
         printf("[Debug Info:] lowerBound = %u, expiryTime = %u \n", lowerBound, expiryTime);
         printf("[Debug Info:] upperBound = %i \n", upperBound);
     }
     #endif
-    
+
     if (m_maxTimeStamp >= expiryTime) //Segment as a whole did not expire
     {
         int actualPos = 0, bufferPos = 0;
-
         if (m_numPair) //Search Data
         {
             int predictPosMin, predictPosMax;
@@ -505,7 +508,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
     #if defined(DEBUG_KEY) || defined(DEBUG_TS) 
     if(DEBUG_KEY == lowerBound) 
     {
-        DEBUG_ENTER_FUNCTION("SWseg","range_scan")
+        DEBUG_ENTER_FUNCTION("SWseg","range_scan");
         printf("[Debug Info:] m_currentNodeStartKey = %u \n", m_currentNodeStartKey);
         printf("[Debug Info:] m_startKey = %u \n", m_startKey);
         printf("[Debug Info:] m_maxTimeStamp = %u \n", m_maxTimeStamp);
@@ -524,6 +527,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
     int count = 0;
     if (m_maxTimeStamp >= expiryTime) 
     {
+        
         //Search Data
         while (startPos < m_numPair && m_localData[startPos].first <= upperBound)
         {
@@ -541,7 +545,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
             }
             ++startPos;
         }
-
+        
         //Search Buffer
         bool deleteFromBuffer = false;
         while(startBufferPos < m_numPairBuffer && m_buffer[startBufferPos].first <= upperBound)
@@ -552,26 +556,20 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
             }
             else
             {
-                // //Revert if slow
-                // if (m_buffer[startBufferPos].second)
-                // {
-                //     m_buffer[startBufferPos].second = 0;
-                // }
-
                 deleteFromBuffer = true;
                 m_buffer[startBufferPos].first = 0;
                 m_buffer[startBufferPos].second = 0;
             }
             ++startBufferPos;
         }
-
+        
         if (deleteFromBuffer)
         {
            pair<Type_Key,Type_Ts> deletePair = make_pair(0,0);
            m_buffer.erase(remove(m_buffer.begin(), m_buffer.end(), deletePair), m_buffer.end());
            m_numPairBuffer = m_buffer.size();
         }
-
+        
         if ((double)m_numPairExist/m_numPair < 0.5)
         {
             updateSeg.push_back(make_tuple(pswix::seg_update_type::RETRAIN,m_parentIndex,m_currentNodeStartKey));
@@ -590,7 +588,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
     #if defined(DEBUG_KEY) || defined(DEBUG_TS) 
     if(DEBUG_KEY == lowerBound){printf("[Debug Info:] Range Scan: Go to Sibling \n");}
     #endif
-
+    
     if (m_parentIndex < threadRightBoundary)
     {
         if(m_rightSibling && m_rightSibling->m_currentNodeStartKey <= upperBound)
@@ -598,7 +596,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
             count += m_rightSibling->range_scan(threadLeftBoundary, threadRightBoundary, lowerBound, expiryTime, upperBound, updateSeg);
         }
     }
-
+    
     #ifdef DEBUG 
     printf("[Debug Info:] Range Scan: Back from Sibling \n");
     #endif
@@ -618,7 +616,7 @@ int SWseg<Type_Key,Type_Ts>::range_scan(   int threadLeftBoundary, int threadRig
     #if defined(DEBUG_KEY) || defined(DEBUG_TS) 
     if(DEBUG_KEY == lowerBound) 
     {
-        DEBUG_EXIT_FUNCTION("SWseg","range_scan")
+        DEBUG_EXIT_FUNCTION("SWseg","range_scan");
         printf("[Debug Info:] stop DP pos = %i \n", startPos);
         printf("[Debug Info:] stop buffer pos = %i \n", startBufferPos);
     }
@@ -635,13 +633,13 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
 {
     #ifdef DEBUG
     DEBUG_ENTER_FUNCTION("SWseg","insert");
-    printf("[Debug Info:] key = %u, timestamp = %u \n" , key, timestamp);
-    printf("[Debug Info:] m_startKey = %u \n ", m_startKey);
-    printf("[Debug Info:] m_currentNodeStartKey = %u \n ", m_currentNodeStartKey);
+    printf("[Debug Info:] key = %lu, timestamp = %lu \n" , key, timestamp);
+    printf("[Debug Info:] m_startKey = %lu \n ", m_startKey);
+    printf("[Debug Info:] m_currentNodeStartKey = %lu \n ", m_currentNodeStartKey);
     printf("[Debug Info:] m_numPair = %i \n ", m_numPair);
     printf("[Debug Info:] m_numPairExist = %i \n ", m_numPairExist);
     printf("[Debug Info:] m_numPairBuffer =%i \n ", m_numPairBuffer); 
-    printf("[Debug Info:] m_maxTimeStamp = %i \n ", m_maxTimeStamp);
+    printf("[Debug Info:] m_maxTimeStamp = %lu \n ", m_maxTimeStamp);
     printf("[Debug Info:] m_slope = %g \n ", m_slope);
     printf("[Debug Info:] m_rightSearchBound = %i \n ", m_rightSearchBound);
     printf("[Debug Info:] m_leftSearchBound = %i \n ", m_leftSearchBound);
@@ -651,27 +649,19 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
     if(DEBUG_KEY == key)
     {
         DEBUG_ENTER_FUNCTION("SWseg","insert");
-        printf("[Debug Info:] key = %u, timestamp = %u \n" , key, timestamp);
-        printf("[Debug Info:] m_startKey = %u \n ", m_startKey);
-        printf("[Debug Info:] m_currentNodeStartKey = %u \n ", m_currentNodeStartKey);
+        printf("[Debug Info:] key = %lu, timestamp = %lu \n" , key, timestamp);
+        printf("[Debug Info:] m_startKey = %lu \n ", m_startKey);
+        printf("[Debug Info:] m_currentNodeStartKey = %lu \n ", m_currentNodeStartKey);
         printf("[Debug Info:] m_numPair = %i \n ", m_numPair);
         printf("[Debug Info:] m_numPairExist = %i \n ", m_numPairExist);
         printf("[Debug Info:] m_numPairBuffer =%i \n ", m_numPairBuffer); 
-        printf("[Debug Info:] m_maxTimeStamp = %i \n ", m_maxTimeStamp);
+        printf("[Debug Info:] m_maxTimeStamp = %lu \n ", m_maxTimeStamp);
         printf("[Debug Info:] m_slope = %g \n ", m_slope);
         printf("[Debug Info:] m_rightSearchBound = %i \n ", m_rightSearchBound);
         printf("[Debug Info:] m_leftSearchBound = %i \n ", m_leftSearchBound);
     }
     #endif
 
-    // //Not really an error, currently the system is technically able to handle this, but it should be noted
-    // //that you technically need to update the root node (especially if multi leveled) 
-    // Only happens to first segment of each thread
-    // if (key < m_currentNodeStartKey) //REMOVE LATER
-    // {
-    //     printf("NOTE: key less than m_currentNodeStartKey (%u) \n", key);
-    // }
-    
     if (m_maxTimeStamp >= expiryTime) //Segment still valid
     {
         updateSeg.reserve(1);
@@ -701,22 +691,6 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
                     printf("[Debug Info:] Insert into left neighbour \n");
                 }
                 #endif
-
-                // m_leftSibling->m_buffer.push_back(make_pair(key,timestamp));
-                // ++m_leftSibling->m_numPairBuffer;
-                // m_leftSibling->update_maximium_timestamp(timestamp);
-
-                // m_leftSibling->m_rightSibling = m_rightSibling;
-                // if (rightInsertFlag)
-                // {
-                //     m_rightSibling->m_leftSibling = m_leftSibling;
-                // }
-
-                // if (m_leftSibling->m_numPairBuffer > MAX_BUFFER_SIZE)
-                // {
-                //     updateSeg.push_back(make_tuple(pswix::seg_update_type::RETRAIN,m_leftSibling->m_parentIndex,m_leftSibling->m_currentNodeStartKey));
-                // }
-                // updateSeg.push_back(make_tuple(pswix::seg_update_type::DELETE,m_parentIndex,m_currentNodeStartKey));
 
                 SWseg<Type_Key,Type_Ts>* rightSibling = (rightInsertFlag && m_rightSibling)? m_rightSibling : nullptr;
                 SWseg<Type_Key,Type_Ts>* insertedSegPointer = m_leftSibling->insert_neighbour(threadLeftBoundary,threadRightBoundary,
@@ -756,22 +730,6 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
                 }
                 #endif
 
-                // updateSeg.push_back(make_tuple(pswix::seg_update_type::DELETE,m_parentIndex,m_currentNodeStartKey));
-
-                // //TODO: generate external insert function for buffer inserts from silbings
-                // m_rightSibling->insert_buffer(0, key, timestamp, expiryTime, updateSeg);
-
-                // m_rightSibling->m_buffer.push_back(make_pair(key,timestamp));
-                // m_rightSibling->m_currentNodeStartKey = key;
-                // m_rightSibling->update_maximium_timestamp(timestamp);
-                // //note: no need to update rightSibling left pointer since this assumes all left segments are deleted, 
-                // // or else will not trigger right insertion.
-
-                // if (updateSeg.size() == 1)
-                // {
-                //     updateSeg.push_back(make_tuple(pswix::seg_update_type::REPLACE,m_rightSibling->m_parentIndex,key));
-                // }
-
                 updateSeg.push_back(make_tuple(pswix::seg_update_type::DELETE,m_parentIndex,m_currentNodeStartKey));
                 SWseg<Type_Key,Type_Ts>* insertedSegPointer = m_rightSibling->insert_neighbour(threadLeftBoundary,threadRightBoundary,
                                                                 key, timestamp, expiryTime, updateSeg,
@@ -788,8 +746,6 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
             abort();
         }
     }
-
-    return 1;
 
     #ifdef DEBUG
     DEBUG_EXIT_FUNCTION("SWseg","insert");
@@ -815,6 +771,8 @@ int SWseg<Type_Key,Type_Ts>::insert(   int threadLeftBoundary, int threadRightBo
         printf("[Debug Info:] m_leftSearchBound = %i \n", m_leftSearchBound);
     }
     #endif
+
+    return 1;
 }
 
 template <class Type_Key, class Type_Ts>
@@ -1057,7 +1015,7 @@ void SWseg<Type_Key,Type_Ts>::insert_model(int insertionPos, bool addErrorFlag, 
                 #endif
 
                 #if defined(DEBUG_KEY) || defined(DEBUG_TS)
-                if(DEBUG_KEY == __KEY_T_TYPE)
+                if(DEBUG_KEY == key)
                 {
                     printf("[Debug Info:] Shift towards a gap right of the insertionPos \n");
                     printf("[Debug Info:] InsertionPos = %i \n" , insertionPos);

@@ -10,9 +10,4 @@
 #define RUNFLAG -1
 #define NO_STD 1
 // #define PRINT
-
-#define NUM_THREADS 4
-#define CACHELINE_SIZE (1 << 6)
-#define NUM_SEARCH_PER_ROUND 1
-#define NUM_UPDATE_PER_ROUND 5
 // #define LOG_ON

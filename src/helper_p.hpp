@@ -15,7 +15,12 @@
 #include <bitset>
 #include <stdint.h>
 
-#include "config.hpp"
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include "../lib/multithread_queues/concurrent_queue.h"
+
+#include "config_p.hpp"
 #include "../utils/print_util.hpp"
 
 #if defined(DEBUG) || defined(DEBUG_KEY) || defined(DEBUG_TS)
@@ -170,7 +175,7 @@ void calculate_split_index_one_pass(const vector<pair<Type_Key,Type_Ts>> & data,
 {
     #ifdef DEBUG
     DEBUG_ENTER_FUNCTION("Util","calculate_split_index_one_pass");
-    fprintf("[Debug Info:] size of data = %i \n", data.size());
+    printf("[Debug Info:] size of data = %i \n", data.size());
     #endif
 
     double slopeLow = 0;
@@ -229,7 +234,7 @@ void calculate_split_index_one_pass_least_sqaure(const vector<pair<Type_Key,Type
 {
     #ifdef DEBUG
     DEBUG_ENTER_FUNCTION("Util","calculate_split_index_one_pass_least_sqaure");
-    fprintf("[Debug Info:] size of data = %i \n", data.size());
+    printf("[Debug Info:] size of data = %i \n", data.size());
     #endif
 
     double slopeLow = 0;

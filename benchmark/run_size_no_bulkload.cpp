@@ -33,6 +33,11 @@ using namespace std;
 #define NO_STD 1
 #endif
 
+#ifdef OUTPUT_X_AXIS
+vector<uint64_t> noUpdate;
+uint64_t accumulate_cnt = 0;
+#endif
+
 vector<uint64_t> indexSize;
 
 int size_of_map()
@@ -78,11 +83,19 @@ void run_vector(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             itDelete++;
         }
         
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
         ++it;
     }
@@ -90,6 +103,9 @@ void run_vector(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     uint64_t initialSize = sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete);
     indexSize.push_back(sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete));
     cnt = 0;
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     it = data.begin()+TIME_WINDOW;
     itDelete = data.begin();
@@ -116,16 +132,26 @@ void run_vector(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             it++;
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete));
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
             cnt = 0;
         }
     }
 
     uint64_t finalSize = sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete);
     indexSize.push_back(sizeof(vector<pair<uint64_t, uint64_t>>) + sizeof(pair<uint64_t, uint64_t>) * (it - itDelete));
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
     
     cout << "Algorithm=Vector";
     cout << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE;
@@ -134,7 +160,15 @@ void run_vector(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
         cout << ";NoStandDev=" << NO_STD;
     }
     cout << ";Fanout=" << 0 << ";SplitError=" << INITIAL_ERROR << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
-    cout << ";MapSize=0" << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize; 
+    cout << ";MapSize=0" << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+    #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -144,6 +178,11 @@ void run_vector(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 void run_swix(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
@@ -159,17 +198,29 @@ void run_swix(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
 
         swix.insert(dataPair);
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(swix.get_total_size_in_bytes());
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t initialSize = swix.get_total_size_in_bytes();
     indexSize.push_back(swix.get_total_size_in_bytes());
     cnt = 0;
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     auto it = data.begin()+TIME_WINDOW;
     auto itDelete = data.begin();
@@ -229,16 +280,27 @@ void run_swix(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             #endif
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(swix.get_total_size_in_bytes());
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t finalSize = swix.get_total_size_in_bytes();
     indexSize.push_back(swix.get_total_size_in_bytes());
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     #ifdef TUNE
     cout << "Algorithm=SWIXTune";
@@ -252,6 +314,14 @@ void run_swix(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     }
     cout << ";Fanout=" << 0 << ";SplitError=" << INITIAL_ERROR << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
     cout << ";MapSize=0" << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+    #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -261,6 +331,11 @@ void run_swix(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 
@@ -293,17 +368,29 @@ void run_alex(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
         alex.insert(get<0>(*itInitial), get<1>(*itInitial));
         ++itInitial;
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(alex::alex_get_total_size_in_bytes(alex));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t initialSize = alex::alex_get_total_size_in_bytes(alex);
     indexSize.push_back(alex::alex_get_total_size_in_bytes(alex));
     cnt = 0;
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     auto it = data.begin()+TIME_WINDOW;
     auto itDelete = data.begin();
@@ -344,16 +431,27 @@ void run_alex(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             it++;
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(alex::alex_get_total_size_in_bytes(alex));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t finalSize = alex::alex_get_total_size_in_bytes(alex);
     indexSize.push_back(alex::alex_get_total_size_in_bytes(alex));
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     cout << "Algorithm=Alex" << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE;
     if (LOAD_DATA_METHOD == 2)
@@ -362,6 +460,14 @@ void run_alex(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     }
     cout << ";Fanout=" << 0 << ";SplitError=" << 0 << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
     cout << ";MapSize=" << size_of_map() << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+    #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -371,6 +477,11 @@ void run_alex(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 
@@ -393,17 +504,29 @@ void run_pgm(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
         pgm.insert_or_assign(get<0>(*it),get<1>(*it));
         ++it;
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(pgm::pgm_get_total_size_in_bytes(pgm));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t initialSize = pgm::pgm_get_total_size_in_bytes(pgm);
     indexSize.push_back(pgm::pgm_get_total_size_in_bytes(pgm));
     cnt = 0;
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     it = data.begin()+TIME_WINDOW;
     itDelete = data.begin();
@@ -443,16 +566,27 @@ void run_pgm(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             it++;
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(pgm::pgm_get_total_size_in_bytes(pgm));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
     
     uint64_t finalSize = pgm::pgm_get_total_size_in_bytes(pgm);
     indexSize.push_back(pgm::pgm_get_total_size_in_bytes(pgm));
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     cout << "Algorithm=PGM" << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE;
     if (LOAD_DATA_METHOD == 2)
@@ -461,6 +595,14 @@ void run_pgm(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     }
     cout << ";Fanout=" << FANOUT_BP << ";SplitError=" << 0 << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
     cout << ";MapSize=" << size_of_map() << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+    #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -470,6 +612,11 @@ void run_pgm(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 void run_btree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
@@ -492,17 +639,29 @@ void run_btree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
         btree.insert(insertTuple);
         ++it;
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(btree::bt_get_total_size_in_bytes(btree));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t initialSize = btree::bt_get_total_size_in_bytes(btree);
     indexSize.push_back(btree::bt_get_total_size_in_bytes(btree));
     cnt = 0;
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     it = data.begin()+TIME_WINDOW;
     itDelete = data.begin();
@@ -542,16 +701,29 @@ void run_btree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             it++;
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(btree::bt_get_total_size_in_bytes(btree));
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
+
         }
     }
 
     uint64_t finalSize = btree::bt_get_total_size_in_bytes(btree);
     indexSize.push_back(btree::bt_get_total_size_in_bytes(btree));
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     cout << "Algorithm=BTree" << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE;
     if (LOAD_DATA_METHOD == 2)
@@ -560,6 +732,14 @@ void run_btree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     }
     cout << ";Fanout=" << FANOUT_BP << ";SplitError=" << 0 << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
     cout << ";MapSize=" << size_of_map() << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+     #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -569,6 +749,11 @@ void run_btree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 void run_imtree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
@@ -579,18 +764,30 @@ void run_imtree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     {
         pair<uint64_t,uint64_t> insertTuple = make_pair(get<0>(*it),get<1>(*it));
         imtree.insert(insertTuple);
+        
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
 
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(imtree.get_total_size_in_bytes());
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t initialSize = imtree.get_total_size_in_bytes();
     indexSize.push_back(imtree.get_total_size_in_bytes());
     cnt = 0;
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     auto it = data.begin()+TIME_WINDOW;
     auto itDelete = data.begin();
@@ -629,16 +826,28 @@ void run_imtree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
             it++;
         }
 
+        #ifdef OUTPUT_X_AXIS
+        ++accumulate_cnt;
+        #endif
+
         ++cnt;
         if (cnt == SNAP_SHOT)
         {
             indexSize.push_back(imtree.get_total_size_in_bytes());
             cnt = 0;
+
+            #ifdef OUTPUT_X_AXIS
+            noUpdate.push_back(accumulate_cnt);
+            #endif
         }
     }
 
     uint64_t finalSize = imtree.get_total_size_in_bytes();
     indexSize.push_back(imtree.get_total_size_in_bytes());
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.push_back(accumulate_cnt);
+    #endif
 
     cout << "Algorithm=IMTree" << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE;
     if (LOAD_DATA_METHOD == 2)
@@ -647,6 +856,14 @@ void run_imtree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     }
     cout << ";Fanout=" << 0 << ";SplitError=" << 0 << ";TimeWindow=" << TIME_WINDOW << ";UpdateLength=" << (TEST_LEN/TIME_WINDOW)-1;
     cout << ";MapSize=0" << ";InitialSize=" << initialSize << ";FinalSize=" << finalSize;
+    #ifdef OUTPUT_X_AXIS
+    cout << ";X=[" << noUpdate.front();
+    for (auto it = noUpdate.begin()+1; it != noUpdate.end(); ++it)
+    {
+        cout << "," << *it;
+    }
+    cout << "]";
+    #endif
     cout << ";Size=[" << indexSize.front();
     for (auto it = indexSize.begin()+1; it != indexSize.end(); ++it)
     {
@@ -656,6 +873,11 @@ void run_imtree(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
     cout << endl;
 
     indexSize.clear();
+
+    #ifdef OUTPUT_X_AXIS
+    noUpdate.clear();
+    accumulate_cnt = 0;
+    #endif
 }
 
 int main(int argc, char** argv)

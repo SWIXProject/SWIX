@@ -10,5 +10,5 @@
 
 ## Experimental Results
 ---
-- Comparative analysis containing all datasets are in experiments/. Note the full disscussion of the results will be included in the extended version of the paper (Coming soon!)
+- Comparative analysis containing all datasets are in experiments/. Latest figures will be added soon. Note the full disscussion of the results will be included in the extended version of the paper (Coming soon!)
 - All experiments are based on the SOSD dataset. Their distribution can be found [here](https://arxiv.org/abs/1911.13014).

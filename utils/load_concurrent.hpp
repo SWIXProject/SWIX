@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cassert>
 
-#include "../parameters.hpp"
+#include "../parameters_p.hpp"
 
 using namespace std;
 

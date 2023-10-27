@@ -3,7 +3,6 @@
 #include <mutex>
 #include <atomic>
 #include <unistd.h>
-#include <sys/resource.h>
 
 #include "../src/PSwix.hpp"
 
@@ -16,13 +15,16 @@
 
 using namespace std;
 
+#ifndef LOAD_DATA_METHOD
+#define LOAD_DATA_METHOD 0         
+#endif
+
 /*Key and Timestamp Types*/
 typedef uint64_t key_type;
 typedef uint64_t time_type;
 typedef uint64_t val_type;
 
 struct alignas(CACHELINE_SIZE) ThreadParam;
-
 typedef ThreadParam thread_param_t;
 typedef pswix::SWmeta<key_type, time_type> pswix_type;
 typedef tuple<task_status,uint64_t,uint64_t,uint64_t> task_type; // tuple<task_type,lowerbound,timestamp,upperbound>
@@ -37,36 +39,60 @@ struct alignas(CACHELINE_SIZE) ThreadParam {
     uint32_t thread_id;
 };
 
+struct Perf
+{
+    uint64_t totalCycle;
+    uint64_t totalCycleWithSync;
+    size_t memoryUsage;
+};
+typedef Perf perf_type;
+
 //Temporary task queue for each worker thread
-moodycamel::ReaderWriterQueue<task_type> task_queue_worker[NUM_THREADS-1];
+moodycamel::ReaderWriterQueue<task_type> task_queue_worker[NUM_THREADS];
 
 void prepare_index(pswix_type *&pswix);
-void start_benchmark(pswix_type *pswix, uint64_t & totalCycle);
-void query_dispatcher();
+void start_benchmark(pswix_type *pswix, perf_type & perf);
+void query_dispatcher(pswix_type *pswix, perf_type & perf);
 void *meta_thread(void *param);
 void *worker_threads(void *param);
 
 int main(int argc, char **argv)
 {
-    LOG_INFO("[Bulkloading DALi]");
-    double time_s = 0.0;
-
-    sosd_range_query<key_type,time_type>(DATA_DIR FILE_NAME);
-
+    switch (LOAD_DATA_METHOD)
+    {
+        case 1:
+            sosd_range_query_sequential<key_type,time_type>(DATA_DIR FILE_NAME);
+            break;
+        default:
+            sosd_range_query<key_type,time_type>(DATA_DIR FILE_NAME);
+            break;
+    }
     pswix_type *pswix;
+
+    perf_type perf;
+    perf.totalCycle = 0;
+    perf.totalCycleWithSync = 0;
+    perf.memoryUsage = 0;
+
     prepare_index(pswix);
 
-    uint64_t totalCycle = 0;
-    uint64_t totalCycleWithSync = 0;
-    startTimer(&totalCycleWithSync);
-    start_benchmark(pswix, totalCycle);
-    stopTimer(&totalCycleWithSync);
+    startTimer(&perf.totalCycleWithSync);
+    
+    start_benchmark(pswix, perf);
+
+    stopTimer(&perf.totalCycleWithSync);
 
     if (pswix != nullptr) delete pswix;
 
-    cout << "Algorithm=PSWIX" << ";Threads=" << NUM_THREADS  << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE << ";SearchPerRound=" << NUM_SEARCH_PER_ROUND;
+    #if PARTITION_METHOD == 1
+    cout << "Algorithm=PSWIXNoEmpty";
+    #else
+    cout << "Algorithm=PSWIX";
+    #endif
+    cout << ";Threads=" << NUM_THREADS  << ";Data=" << FILE_NAME << ";MatchRate=" << MATCH_RATE << ";SearchPerRound=" << NUM_SEARCH_PER_ROUND;
     cout << ";UpdatePerRound=" << NUM_UPDATE_PER_ROUND <<";TimeWindow=" << TIME_WINDOW << ";TestLength=" << TEST_LEN-TIME_WINDOW;
-    cout << ";TotalTime=" << (double)totalCycle/CPU_CLOCK << ";TotalTimeSync=" << (double)totalCycleWithSync/CPU_CLOCK << ";";
+    cout << ";TotalTime=" << (double)perf.totalCycle/CPU_CLOCK << ";TotalTimeSync=" << (double)perf.totalCycleWithSync/CPU_CLOCK;
+    cout << ";MemoryUsage=" << perf.memoryUsage << ";";
     cout << endl;
 
     return 0;
@@ -89,7 +115,7 @@ void prepare_index(pswix_type *&pswix)
     double time_s = 0.0;
     TIMER_DECLARE(0);
     TIMER_BEGIN(0);
-    pswix = new pswix_type(NUM_THREADS-1, data_initial);
+    pswix = new pswix_type(NUM_THREADS, data_initial);
     TIMER_END_S(0,time_s);
     LOG_INFO("%8.1lf s : %.40s", time_s, "bulkloading");
 }
@@ -97,7 +123,7 @@ void prepare_index(pswix_type *&pswix)
 /*
 Create threads
 */
-void start_benchmark(pswix_type *pswix, uint64_t & totalCycle)
+void start_benchmark(pswix_type *pswix, perf_type & perf)
 {
     LOG_INFO("[Initializing & Checking Threads]");
     pthread_t threads[NUM_THREADS];
@@ -119,14 +145,7 @@ void start_benchmark(pswix_type *pswix, uint64_t & totalCycle)
     }
 
     LOG_INFO("[Creating Threads]");
-    int return_code = pthread_create(&threads[0], nullptr, meta_thread,
-                            (void *)&thread_params[0]);
-    if (return_code) 
-    {
-        LOG_ERROR("Error gerenerating meta thread: return code = %i \n",return_code);
-        abort();
-    }
-    for(size_t worker_i = 1; worker_i < NUM_THREADS; ++worker_i)
+    for(size_t worker_i = 0; worker_i < NUM_THREADS; ++worker_i)
     {
         int return_code = pthread_create(&threads[worker_i], nullptr, worker_threads,
                                 (void *)&thread_params[worker_i]);
@@ -143,7 +162,7 @@ void start_benchmark(pswix_type *pswix, uint64_t & totalCycle)
     LOG_INFO("[Start Workload]");
     ready_threads = 0;
     start_flag = true;
-    query_dispatcher();
+    query_dispatcher(pswix, perf);
 
     LOG_INFO("[Finish Workload, joining threads]");
     void *status;
@@ -159,14 +178,14 @@ void start_benchmark(pswix_type *pswix, uint64_t & totalCycle)
 
     for(int i = 0; i < NUM_THREADS; ++i)
     {
-        totalCycle += thread_params[i].time;
+        perf.totalCycle += thread_params[i].time;
     }
 }
 
 /*
 Query dispatcher
 */
-void query_dispatcher()
+void query_dispatcher(pswix_type *pswix, perf_type & perf)
 {
     LOG_INFO("[Preparing Dispatcher]");
     auto startIt = benchmark_data.begin();
@@ -177,6 +196,10 @@ void query_dispatcher()
 
     srand(1); //Change seed if necessary
     volatile int round = 1;
+
+    size_t total_mem = 0;
+    int mem_count = 0;
+
     while (endIt != benchmark_data.begin() + TEST_LEN)
     {
         LOG_INFO("[Dispatching round %i begins]", round);
@@ -185,7 +208,8 @@ void query_dispatcher()
             searchTuple = benchmark_data.at((startIt - benchmark_data.begin()) + (rand() % ( (endIt - benchmark_data.begin()) - (startIt - benchmark_data.begin()) + 1 )));
             search_task = make_tuple(task_status::SEARCH, get<0>(searchTuple), get<1>(searchTuple), get<2>(searchTuple));
 
-            for (int worker = 0; worker < NUM_THREADS-1; ++worker)
+            // to all worker threads
+            for (int worker = 0; worker < NUM_THREADS; ++worker)
             {
                 task_queue_worker[worker].enqueue(search_task);
             }
@@ -194,10 +218,11 @@ void query_dispatcher()
 
         for (int i = 0; i < NUM_UPDATE_PER_ROUND; ++i)
         {   
-            insert_task = make_tuple(task_status::INSERT, get<0>(*endIt), get<1>(*endIt), 0);
-            delete_task = make_tuple(task_status::DELETE, get<0>(*startIt), get<1>(*startIt), 0);
+            insert_task = make_tuple(task_status::INSERT, get<0>(*endIt), get<1>(*endIt), numeric_limits<key_type>::max());
+            delete_task = make_tuple(task_status::DELETE, get<0>(*startIt), get<1>(*startIt), numeric_limits<key_type>::max());
 
-            for (int worker = 0; worker < NUM_THREADS-1; ++worker)
+            // to all worker threads
+            for (int worker = 0; worker < NUM_THREADS; ++worker)
             {
                 task_queue_worker[worker].enqueue(insert_task);
                 task_queue_worker[worker].enqueue(delete_task);
@@ -211,98 +236,38 @@ void query_dispatcher()
 
 
         round_end_task = make_tuple(task_status::ROUND_END, 0, 0, 0);
-        pswix::meta_queue.enqueue(make_tuple(task_status::ROUND_END,0,0,nullptr));
-
-        for (int worker = 0; worker < NUM_THREADS-1; ++worker)
+        for (int worker = 0; worker < NUM_THREADS; ++worker)
         {
             task_queue_worker[worker].enqueue(round_end_task);
         }
 
+        if (round % 1000 == 0)
+        {
+            total_mem += pswix->memory_usage();
+            ++mem_count;
+        }
+
         LOG_INFO("[Dispatching round %i finished]",round);
         ++round;
+
         LOG_INFO("[Waiting for next round]");
+        while (ready_threads < NUM_THREADS) sleep(0.5);
+        ready_threads = 0;
     }
-    
-    
-    while (ready_threads < NUM_THREADS);
-    ready_threads = 0;
 
     finish_task = make_tuple(task_status::FINISH, 0, 0, 0);
-    pswix::meta_queue.enqueue(make_tuple(task_status::FINISH,0,0,nullptr));
-
-    for (int worker = 0; worker < NUM_THREADS-1; ++worker)
+    for (int worker = 0; worker < NUM_THREADS; ++worker)
     {
         task_queue_worker[worker].enqueue(finish_task);
     }
 
+    perf.memoryUsage = total_mem / mem_count;
     LOG_INFO("[Dispatcher finished: total rounds = %i]", round-1);
 }
 
 /*
 Thread processes
 */
-void *meta_thread(void *param)
-{
-    thread_param_t &thread_param = *(thread_param_t *)param;
-    uint32_t thread_id = thread_param.thread_id;
-    pswix_type *pswix = thread_param.pswix;
-    LOG_INFO("[Created meta thread 0]");
-    ready_threads++;
-
-    volatile int round = 1;
-    volatile int round_end_count = 0;
-    volatile int finish_count = 0;
-
-    while (!start_flag);
-
-    while (true)
-    {
-        pswix::meta_workload_type meta_task;
-        bool found = pswix::meta_queue.try_dequeue(meta_task);
-        if (found)
-        {
-            uint64_t cycles = 0;
-            startTimer(&cycles);
-
-            if (get<0>(meta_task) == task_status::ROUND_END) {++round_end_count;}
-            if (get<0>(meta_task) == task_status::FINISH) {++finish_count;}
-
-            if (round_end_count == NUM_THREADS || finish_count == NUM_THREADS)
-            {
-                LOG_INFO("Meta thread 0 finished round %i", round);
-                round_end_count = 0;
-                ++round;
-                ++ready_threads;
-                
-                if (finish_count == NUM_THREADS) 
-                { 
-                    stopTimer(&cycles);
-                    thread_param.time += cycles;
-                    return NULL; 
-                }
-            }
-            else
-            {
-                switch (get<0>(meta_task))
-                {
-                    case task_status::INSERT:
-                        pswix->meta_insert(thread_id,get<2>(meta_task),get<3>(meta_task),get<1>(meta_task));
-                        break;
-                    
-                    case task_status::RETRAIN:
-                        pswix->meta_retrain();
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-            stopTimer(&cycles);
-            thread_param.time += cycles;
-        }
-    }
-}
-
 void *worker_threads(void *param)
 {
     thread_param_t &thread_param = *(thread_param_t *)param;
@@ -320,22 +285,21 @@ void *worker_threads(void *param)
 
     while (true)
     {
-        found = task_queue_worker[thread_id-1].try_dequeue(task);
+        found = task_queue_worker[thread_id].try_dequeue(task);
         if (found)
         {
             uint64_t cycles = 0;
             startTimer(&cycles);
+
             if (get<0>(task) == task_status::ROUND_END || get<0>(task) == task_status::FINISH)
             {
                 LOG_INFO("[Thread %u finished round %i: count %i]",thread_id, round, count);
-                pswix::meta_queue.enqueue(make_tuple(task_status::ROUND_END,0,0,nullptr));
                 count = 0;
                 ++round;
                 ++ready_threads;
 
                 if (get<0>(task) == task_status::FINISH) 
                 {
-                    pswix::meta_queue.enqueue(make_tuple(task_status::FINISH,0,0,nullptr));
                     stopTimer(&cycles);
                     thread_param.time += cycles;
                     return NULL; 
@@ -365,15 +329,25 @@ void *worker_threads(void *param)
                     switch (get<0>(task))
                     {
                         case task_status::SEARCH:
+                            LOG_INFO("[Thread %u round %i: search %lu start]",thread_id, round, get<1>(task));
                             count += pswix->range_query(thread_id, get<1>(task), get<2>(task), get<3>(task), predictBound);
+                            LOG_INFO("[Thread %u round %i: search %lu finish]",thread_id, round, get<1>(task));
                             break;
 
                         case task_status::INSERT:
+                            LOG_INFO("[Thread %u round %i: insert %lu start]",thread_id, round, get<1>(task));
                             pswix->insert(thread_id, get<1>(task), get<2>(task), predictBound);
+                            LOG_INFO("[Thread %u round %i: insert %lu finish]",thread_id, round, get<1>(task));
                             break;
 
                         default:
                             break;
+                    }
+
+                    if (pswix::thread_retraining != -1 && pswix::thread_retraining.load()/10 == thread_id) 
+                    { 
+                        LOG_INFO("[Thread %u round %i: retrain]", thread_id, round);
+                        pswix->meta_retrain();
                     }
                 }
                 #endif
@@ -383,3 +357,4 @@ void *worker_threads(void *param)
         }
     }
 }
+
