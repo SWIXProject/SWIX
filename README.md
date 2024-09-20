@@ -1,5 +1,5 @@
 # SWIX: A Memory-efficient Sliding Window Learned Index
----
+
 # Introduction
 SWIX is a memory efficient learned index for sliding windows of streams. Details of SWIX can be found our [SIGMOD 2024 paper](https://dl.acm.org/doi/pdf/10.1145/3639296). We also included the code of [FLIRT](lib/flirt/), an incremental learned index. Details can be found in our [EDBT 2023 paper](https://openproceedings.org/2023/conf/edbt/paper-219.pdf). Comparative analysis containing all datasets are in [experiments/](experiments/). Latest figures will be added soon. Note the full disscussion of the results will be included in the extended version of the paper (Coming soon!)
 
@@ -8,7 +8,7 @@ SWIX is a memory efficient learned index for sliding windows of streams. Details
 **[License](##license)**<br>
 
 ## Getting Started
----
+
 SWIX is header-only library. It does not need any installation. You can use the library after cloning the repo with any tool of your choice. For example:
 
 ```bash
@@ -123,7 +123,7 @@ g++ benchmark/run_pswix_v2.cpp -std=c++17 -I/opt/intel/oneapi/mkl/2023.1.0/inclu
 ```
 
 ## License
---
+
 This project is licensed under the terms of the MIT License.
 
 If you want to use the library, please cite the paper:
