@@ -1,4 +1,4 @@
-# SWIX: A Memory-eicient Sliding Window Learned Index
+# SWIX: A Memory-efficient Sliding Window Learned Index
 ---
 # Introduction
 SWIX is a memory efficient learned index for sliding windows of streams. Details of SWIX can be found our [SIGMOD 2024 paper](https://dl.acm.org/doi/pdf/10.1145/3639296). We also included the code of [FLIRT](lib/flirt/), an incremental learned index. Details can be found in our [EDBT 2023 paper](https://openproceedings.org/2023/conf/edbt/paper-219.pdf). Comparative analysis containing all datasets are in [experiments/](experiments/). Latest figures will be added soon. Note the full disscussion of the results will be included in the extended version of the paper (Coming soon!)
