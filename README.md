@@ -37,9 +37,14 @@ The dataset here is from the [SOSD benchmark](https://github.com/learnedsystems/
 
 using namespace std;
 
-// string data_dir = "/data/"; //Place Holders
+// #define RUN_SOSD
+
+//Place Holders
+#ifndef RUN_SOSD
 string data_dir =  "/data/Documents/data/";
-string data_file = "f_books"; //Place Holders
+string data_file = "f_books";
+#endif
+
 int matchRate = 1000;
 int seed = 10;
 
@@ -56,13 +61,28 @@ int main()
     data.reserve(TEST_LEN);
     load_data(data);
 
-    //bulk load initial data into Swix
+    //Initialize Data
     vector<pair<uint64_t, uint64_t>> data_initial;
     data_initial.reserve(TIME_WINDOW);
+
+    //Using SOSD data
+    #ifndef RUN_SOSD
     for (auto it = data.begin(); it != data.begin()+TIME_WINDOW; it++)
     {
         data_initial.push_back(make_pair(get<0>(*it),get<1>(*it)));
     }
+    #endif
+
+    // Random data
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<uint64_t> distr(1, MAX_TIMESTAMP);
+    for (int i = 0; i < TIME_WINDOW; i++)
+    {
+        data_initial.push_back(make_pair(i, distr(gen)));
+    }
+    sort(data_initial.begin(),data_initial.end(),sort_based_on_second);
+
+    //Bulkload
     swix::SWmeta<uint64_t,uint64_t> Swix(data_initial);
 
     //Lookup
