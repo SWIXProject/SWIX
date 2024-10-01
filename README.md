@@ -19,7 +19,10 @@ cd SWIX
 To use the SWIX library on it's own, you just need to copy [src/](src/) directory to your project directory or to the project's include path.
 
 For running SWIX, an example can be found in [main.cpp](main.cpp). Specifically, it shows how to bulkload, lookup, range search, insert using SWIX.
-The dataset here is from the [SOSD benchmark](https://github.com/learnedsystems/SOSD/blob/master/scripts/download.sh). Alternatively, you can run with any randomly generated data.
+
+The dataset here is from the [SOSD benchmark](https://github.com/learnedsystems/SOSD/blob/master/scripts/download.sh). We stored the data at `/data/Documents/data/', feel free to change it to the directory where you stored the data. 
+
+Alternatively, you can run with any randomly generated data which is the default option.
 
 ```cpp
 #include <iostream>
@@ -40,7 +43,7 @@ using namespace std;
 // #define RUN_SOSD
 
 //Place Holders
-#ifndef RUN_SOSD
+#ifdef RUN_SOSD
 string data_dir =  "/data/Documents/data/";
 string data_file = "f_books";
 #endif
@@ -66,7 +69,7 @@ int main()
     data_initial.reserve(TIME_WINDOW);
 
     //Using SOSD data
-    #ifndef RUN_SOSD
+    #ifdef RUN_SOSD
     for (auto it = data.begin(); it != data.begin()+TIME_WINDOW; it++)
     {
         data_initial.push_back(make_pair(get<0>(*it),get<1>(*it)));
@@ -116,6 +119,9 @@ g++ main.cpp -std=c++17 -fopenmp -march=native -O3 -w -o z_run_test.out
 ./z_run_test.out
 ```
 To run Parallel SWIX, run the class in [run_pswix.hpp](benchmark/run_pswix.hpp) or [run_pswix_v2.hpp](benchmark/run_pswix_v2.hpp). V2 is the one evualated in the paper and limits cross parition modification. 
+
+Note: to run Parallel SWIX or the benchmarks, remember to manually change the `DATA_DIR` in [parameters_p.hpp](parameters_p.hpp) and [parameters.hpp](parameters.hpp).
+
 To run this locally (note that [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) is required to run the parallel indexes):
 
 ``` bash

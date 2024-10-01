@@ -16,7 +16,7 @@ using namespace std;
 // #define RUN_SOSD
 
 //Place Holders
-#ifndef RUN_SOSD
+#ifdef RUN_SOSD
 string data_dir =  "/data/Documents/data/";
 string data_file = "f_books";
 #endif
@@ -42,7 +42,7 @@ int main()
     data_initial.reserve(TIME_WINDOW);
 
     //Using SOSD data
-    #ifndef RUN_SOSD
+    #ifdef RUN_SOSD
     for (auto it = data.begin(); it != data.begin()+TIME_WINDOW; it++)
     {
         data_initial.push_back(make_pair(get<0>(*it),get<1>(*it)));
