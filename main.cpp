@@ -27,9 +27,16 @@ int main()
     std::uniform_int_distribution<uint64_t> distr(1, MAX_TIMESTAMP);
     for (int i = 0; i < TEST_LEN; i++)
     {
-        data.push_back(make_pair(i, distr(gen)));
+        if (i + matchRate > TEST_LEN)
+        {
+            data.push_back(make_tuple(i,distr(gen),TEST_LEN-1));
+        }
+        else
+        {
+            data.push_back(make_tuple(i,distr(gen),i + matchRate -1));
+        }
     }
-    sort(data.begin(),data.end(),sort_based_on_second);
+    sort(data.begin(),data.end(),sort_based_on_second_tuple);
 
     //Initialize Data
     vector<pair<uint64_t, uint64_t>> data_initial;
