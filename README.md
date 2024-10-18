@@ -18,11 +18,7 @@ cd SWIX
 
 To use the SWIX library on it's own, you just need to copy [src/](src/) directory to your project directory or to the project's include path.
 
-For running SWIX, an example can be found in [main.cpp](main.cpp). Specifically, it shows how to bulkload, lookup, range search, insert using SWIX.
-
-The dataset here is from the [SOSD benchmark](https://github.com/learnedsystems/SOSD/blob/master/scripts/download.sh). We stored the data at `/data/Documents/data/', feel free to change it to the directory where you stored the data. 
-
-Alternatively, you can run with any randomly generated data which is the default option.
+For running SWIX, an example can be found in [main.cpp](main.cpp). Specifically, it shows how to bulkload, lookup, range search, insert using SWIX. The data in this file is randomly generated.
 
 ```cpp
 #include <iostream>
@@ -40,50 +36,31 @@ Alternatively, you can run with any randomly generated data which is the default
 
 using namespace std;
 
-// #define RUN_SOSD
-
-//Place Holders
-#ifdef RUN_SOSD
-string data_dir =  "/data/Documents/data/";
-string data_file = "f_books";
-#endif
-
 int matchRate = 1000;
 int seed = 10;
-
-void load_data(vector<tuple<uint64_t, uint64_t, uint64_t>> & data)
-{
-    string input_file = data_dir+data_file;
-    add_timestamp(input_file, data, matchRate ,seed);
-}
 
 int main()
 {
     //load data
     vector<tuple<uint64_t, uint64_t, uint64_t>> data;
     data.reserve(TEST_LEN);
-    load_data(data);
-
-    //Initialize Data
-    vector<pair<uint64_t, uint64_t>> data_initial;
-    data_initial.reserve(TIME_WINDOW);
-
-    //Using SOSD data
-    #ifdef RUN_SOSD
-    for (auto it = data.begin(); it != data.begin()+TIME_WINDOW; it++)
-    {
-        data_initial.push_back(make_pair(get<0>(*it),get<1>(*it)));
-    }
-    #endif
 
     // Random data
     std::mt19937 gen(seed);
     std::uniform_int_distribution<uint64_t> distr(1, MAX_TIMESTAMP);
-    for (int i = 0; i < TIME_WINDOW; i++)
+    for (int i = 0; i < TEST_LEN; i++)
     {
-        data_initial.push_back(make_pair(i, distr(gen)));
+        data.push_back(make_pair(i, distr(gen)));
     }
-    sort(data_initial.begin(),data_initial.end(),sort_based_on_second);
+    sort(data.begin(),data.end(),sort_based_on_second);
+
+    //Initialize Data
+    vector<pair<uint64_t, uint64_t>> data_initial;
+    data_initial.reserve(TIME_WINDOW);
+    for (auto it = data.begin(); it != data.begin()+TIME_WINDOW; it++)
+    {
+        data_initial.push_back(make_pair(get<0>(*it),get<1>(*it)));
+    }
 
     //Bulkload
     swix::SWmeta<uint64_t,uint64_t> Swix(data_initial);
@@ -105,6 +82,8 @@ int main()
     return 0;
 }
 ```
+
+To run SWIX with the SOSD dataset, use the [main_sosd](main_sosd.cpp). The dataset here is from the [SOSD benchmark](https://github.com/learnedsystems/SOSD/blob/master/scripts/download.sh). We stored the data at `/data/Documents/data/', feel free to change it to the directory where you stored the data. 
 
 You can use the makefile to run the test. 
 ``` bash
